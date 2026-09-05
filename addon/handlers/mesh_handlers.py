@@ -9,6 +9,8 @@ def edit_mesh_vertices(params: dict) -> dict:
     action = params.get("action", "move")
     vertices = params.get("vertices")
     offset = params.get("offset", [0, 0, 0])
+    factor = params.get("factor", 0.5)
+    iterations = params.get("iterations", 1)
 
     obj = bpy.data.objects.get(obj_name)
     if not obj or obj.type != 'MESH':
@@ -28,7 +30,14 @@ def edit_mesh_vertices(params: dict) -> dict:
         verts_to_delete = [bm.verts[vi] for vi in vertices if vi < len(bm.verts)]
         bmesh.ops.delete(bm, geom=verts_to_delete, context='VERTS')
     elif action == "smooth":
-        bmesh.ops.smooth_vert(bm, verts=bm.verts, factor=0.5, iterations=1)
+        if vertices:
+            verts_to_smooth = [bm.verts[vi] for vi in vertices if vi < len(bm.verts)]
+        else:
+            verts_to_smooth = bm.verts[:]
+        bmesh.ops.smooth_vert(bm, verts=verts_to_smooth, factor=factor, iterations=iterations)
+    elif action == "collapse" and vertices:
+        verts_to_collapse = [bm.verts[vi] for vi in vertices if vi < len(bm.verts)]
+        bmesh.ops.collapse(bm, verts=verts_to_collapse)
 
     bmesh.update_edit_mesh(obj.data)
     bpy.ops.object.mode_set(mode='OBJECT')
@@ -38,6 +47,7 @@ def edit_mesh_vertices(params: dict) -> dict:
 def edit_mesh_edges(params: dict) -> dict:
     obj_name = params["object_name"]
     action = params.get("action", "select")
+    edges = params.get("edges")
 
     obj = bpy.data.objects.get(obj_name)
     if not obj or obj.type != 'MESH':
@@ -45,6 +55,14 @@ def edit_mesh_edges(params: dict) -> dict:
 
     bpy.context.view_layer.objects.active = obj
     bpy.ops.object.mode_set(mode='EDIT')
+    bm = bmesh.from_edit_mesh(obj.data)
+    bm.edges.ensure_lookup_table()
+
+    if edges:
+        for ei in edges:
+            if ei < len(bm.edges):
+                bm.edges[ei].select = (action in ("select", "mark_seam", "clear_seam", "mark_sharp", "crease"))
+    bmesh.update_edit_mesh(obj.data)
 
     if action == "mark_seam":
         bpy.ops.mesh.mark_seam()
@@ -54,6 +72,8 @@ def edit_mesh_edges(params: dict) -> dict:
         bpy.ops.mesh.mark_sharp()
     elif action == "crease":
         bpy.ops.transform.edge_crease(value=1.0)
+    elif action == "deselect":
+        bpy.ops.mesh.select_all(action='DESELECT')
 
     bpy.ops.object.mode_set(mode='OBJECT')
     return {"status": f"edges_{action}"}
@@ -62,6 +82,7 @@ def edit_mesh_edges(params: dict) -> dict:
 def edit_mesh_faces(params: dict) -> dict:
     obj_name = params["object_name"]
     action = params.get("action", "select")
+    faces = params.get("faces")
 
     obj = bpy.data.objects.get(obj_name)
     if not obj or obj.type != 'MESH':
@@ -69,6 +90,14 @@ def edit_mesh_faces(params: dict) -> dict:
 
     bpy.context.view_layer.objects.active = obj
     bpy.ops.object.mode_set(mode='EDIT')
+    bm = bmesh.from_edit_mesh(obj.data)
+    bm.faces.ensure_lookup_table()
+
+    if faces:
+        for fi in faces:
+            if fi < len(bm.faces):
+                bm.faces[fi].select = (action in ("select", "fill", "grid_fill", "triangulate", "poke"))
+    bmesh.update_edit_mesh(obj.data)
 
     if action == "delete":
         bpy.ops.mesh.delete(type='FACE')
@@ -80,6 +109,8 @@ def edit_mesh_faces(params: dict) -> dict:
         bpy.ops.mesh.triangulate()
     elif action == "poke":
         bpy.ops.mesh.poke_faces()
+    elif action == "deselect":
+        bpy.ops.mesh.select_all(action='DESELECT')
 
     bpy.ops.object.mode_set(mode='OBJECT')
     return {"status": f"faces_{action}"}
@@ -137,6 +168,7 @@ def smooth_vertices(params: dict) -> dict:
         return {"error": f"Object '{obj_name}' not found"}
     bpy.context.view_layer.objects.active = obj
     bpy.ops.object.mode_set(mode='EDIT')
+    bpy.ops.mesh.select_all(action='SELECT')
     bpy.ops.mesh.smooth_vertices(factor=factor, iterations=iterations)
     bpy.ops.object.mode_set(mode='OBJECT')
     return {"status": "smoothed", "factor": factor, "iterations": iterations}

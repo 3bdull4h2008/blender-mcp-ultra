@@ -9,7 +9,7 @@ def set_keyframe(params: dict) -> dict:
     if not obj:
         return {"error": f"Object '{params['object_name']}' not found"}
     frame = params.get("frame")
-    if frame:
+    if frame is not None:
         bpy.context.scene.frame_set(frame)
     if params.get("location", True):
         obj.keyframe_insert(data_path="location")
@@ -100,9 +100,10 @@ def setup_subdivision_animation(params: dict) -> dict:
     start_level = params.get("start_level", 0)
     end_level = params.get("end_level", 3)
     mid = (start + end) // 2
+    mid_level = (start_level + end_level) // 2
     mod.levels = start_level
     mod.keyframe_insert(data_path="levels", frame=start)
-    mod.levels = end_level
+    mod.levels = mid_level
     mod.keyframe_insert(data_path="levels", frame=mid)
     mod.levels = end_level
     mod.keyframe_insert(data_path="levels", frame=end)

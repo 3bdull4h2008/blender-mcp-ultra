@@ -26,17 +26,11 @@ def analyze_mesh_quality(params: dict) -> dict:
         "twisted_faces": sum(1 for f in bm.faces if len(f.verts) == 4 and _is_twisted(f)),
     }
 
-    # Check for duplicates
+    orig_vert_count = len(bm.verts)
     bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=0.0001)
-    bm2 = bmesh.new()
-    bm2.from_mesh(mesh)
-    bm2.edges.ensure_lookup_table()
-    bm2.verts.ensure_lookup_table()
-    duplicates = len(mesh.verts) - len(bm2.verts)
-    defects["duplicate_vertices"] = max(0, duplicates)
+    defects["duplicate_vertices"] = max(0, orig_vert_count - len(bm.verts))
 
     bm.free()
-    bm2.free()
 
     total_defects = sum(v for v in defects.values() if isinstance(v, (int, float)))
     is_manifold = defects["non_manifold_edges"] == 0 and defects["boundary_edges"] == 0
@@ -162,7 +156,8 @@ def check_production_readiness(params: dict) -> dict:
         score += 25
 
     # Naming check
-    is_named = not obj.name.startswith("Cube") and not obj.name.startswith("Plane")
+    default_names = {"Cube", "Plane", "Sphere", "Cylinder", "Torus", "Cone", "Monkey", "Grid"}
+    is_named = obj.name not in default_names and not any(obj.name.startswith(f"{n}.") for n in default_names)
     checks["has_descriptive_name"] = is_named
     if is_named:
         score += 12.5
@@ -188,10 +183,12 @@ def find_duplicates(params: dict) -> dict:
     distance = params.get("distance", 0.001)
     bm = bmesh.new()
     bm.from_mesh(obj.data)
+    orig_count = len(bm.verts)
     result = bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=distance)
     removed = result.get("geom", [])
+    merged_count = len(removed)
     bm.free()
-    return {"duplicates_found": len(removed), "distance": distance}
+    return {"duplicates_found": merged_count, "original_vertices": orig_count, "distance": distance}
 
 
 def fix_mesh_defects(params: dict) -> dict:

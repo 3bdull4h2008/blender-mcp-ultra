@@ -8,9 +8,9 @@ from blender_mcp_ultra.validators import Validator
 @mcp.tool()
 def set_object_transform(
     name: str,
-    location: list[float] = None,
-    rotation: list[float] = None,
-    scale: list[float] = None,
+    location: list[float] | None = None,
+    rotation: list[float] | None = None,
+    scale: list[float] | None = None,
     space: str = "WORLD",
 ) -> dict:
     """Set world/local transform of an object. Only provided channels are modified.

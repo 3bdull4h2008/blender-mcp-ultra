@@ -17,7 +17,7 @@ class Validator:
         "os", "sys", "subprocess", "shutil", "socket", "http", "urllib",
         "requests", "ctypes", "importlib", "pathlib", "glob", "pickle",
         "marshal", "shelve", "sqlite3", "mysql", "psycopg", "asyncio",
-        "threading", "multiprocessing", "signal", "ctypes", "code",
+        "threading", "multiprocessing", "signal", "code",
         "codeop", "compileall", "webbrowser", "antigravity", "turtle",
         "tkinter", "smtplib", "xmlrpc", "ftplib", "telnetlib", "uuid",
     ])

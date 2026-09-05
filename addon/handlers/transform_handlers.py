@@ -2,6 +2,7 @@
 
 import bpy
 import math
+import mathutils
 
 
 def set_object_transform(params: dict) -> dict:
@@ -11,12 +12,14 @@ def set_object_transform(params: dict) -> dict:
         return {"error": f"Object '{name}' not found"}
     space = params.get("space", "WORLD")
     if "location" in params:
+        if space == "LOCAL" and obj.parent:
+            obj.matrix_parent_inverse = obj.parent.matrix_world.inverted()
         obj.location = params["location"]
     if "rotation" in params:
         obj.rotation_euler = params["rotation"]
     if "scale" in params:
         obj.scale = params["scale"]
-    return {"status": "transform_set", "name": name}
+    return {"status": "transform_set", "name": name, "space": space}
 
 
 def move_object(params: dict) -> dict:
@@ -25,10 +28,15 @@ def move_object(params: dict) -> dict:
     if not obj:
         return {"error": f"Object '{name}' not found"}
     dx, dy, dz = params.get("x", 0), params.get("y", 0), params.get("z", 0)
-    obj.location.x += dx
-    obj.location.y += dy
-    obj.location.z += dz
-    return {"status": "moved", "name": name, "delta": [dx, dy, dz]}
+    space = params.get("space", "WORLD")
+    if space == "LOCAL":
+        local_offset = obj.matrix_world.to_3x3() @ mathutils.Vector((dx, dy, dz))
+        obj.location += local_offset
+    else:
+        obj.location.x += dx
+        obj.location.y += dy
+        obj.location.z += dz
+    return {"status": "moved", "name": name, "delta": [dx, dy, dz], "space": space}
 
 
 def rotate_object(params: dict) -> dict:
@@ -37,10 +45,15 @@ def rotate_object(params: dict) -> dict:
     if not obj:
         return {"error": f"Object '{name}' not found"}
     rx, ry, rz = params.get("x", 0), params.get("y", 0), params.get("z", 0)
-    obj.rotation_euler.x += rx
-    obj.rotation_euler.y += ry
-    obj.rotation_euler.z += rz
-    return {"status": "rotated", "name": name, "delta": [rx, ry, rz]}
+    space = params.get("space", "WORLD")
+    if space == "LOCAL":
+        local_rot = mathutils.Euler((rx, ry, rz))
+        obj.rotation_euler.rotate(local_rot)
+    else:
+        obj.rotation_euler.x += rx
+        obj.rotation_euler.y += ry
+        obj.rotation_euler.z += rz
+    return {"status": "rotated", "name": name, "delta": [rx, ry, rz], "space": space}
 
 
 def scale_object(params: dict) -> dict:

@@ -65,7 +65,7 @@ def uv_pack_islands(
 @mcp.tool()
 def uv_project_from_view(
     object_name: str,
-    aspect_ratio: list[float] = None,
+    aspect_ratio: list[float] | None = None,
     direction: str = "VIEW",
 ) -> dict:
     """Project UVs from the current view or a specific direction.

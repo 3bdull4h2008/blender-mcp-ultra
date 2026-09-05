@@ -17,6 +17,8 @@ DEFAULT_PORT = 9876
 class BlenderMCPServer:
     """Background TCP server that bridges the MCP server to Blender's main thread."""
 
+    MAX_MESSAGE_SIZE = 50 * 1024 * 1024  # 50MB limit
+
     def __init__(self, host: str = "127.0.0.1", port: int = DEFAULT_PORT):
         self.host = host
         self.port = port
@@ -26,6 +28,9 @@ class BlenderMCPServer:
         self._command_queue: queue.Queue = queue.Queue()
         self._response_queue: queue.Queue = queue.Queue()
         self._timer_registered = False
+        self._pending_responses: dict[int, queue.Queue] = {}
+        self._request_counter = 0
+        self._counter_lock = threading.Lock()
 
     def register(self):
         """Register the addon UI panel and start server."""
@@ -97,14 +102,30 @@ class BlenderMCPServer:
                 if not header:
                     break
                 msg_len = struct.unpack(HEADER_FORMAT, header)[0]
+                if msg_len > self.MAX_MESSAGE_SIZE:
+                    error_resp = json.dumps({"error": f"Message too large: {msg_len} bytes (max {self.MAX_MESSAGE_SIZE})"}).encode("utf-8")
+                    client.sendall(struct.pack(HEADER_FORMAT, len(error_resp)) + error_resp)
+                    continue
                 data = self._recv_exact(client, msg_len)
                 if not data:
                     break
 
                 command = json.loads(data.decode("utf-8"))
 
-                self._command_queue.put((command, client))
-                result = self._response_queue.get(timeout=180)
+                with self._counter_lock:
+                    self._request_counter += 1
+                    req_id = self._request_counter
+
+                resp_queue = queue.Queue()
+                self._pending_responses[req_id] = resp_queue
+                self._command_queue.put((command, req_id))
+
+                try:
+                    result = resp_queue.get(timeout=180)
+                except queue.Empty:
+                    result = {"error": f"Blender did not respond within 180s"}
+                finally:
+                    self._pending_responses.pop(req_id, None)
 
                 resp_payload = json.dumps(result).encode("utf-8")
                 resp_header = struct.pack(HEADER_FORMAT, len(resp_payload))
@@ -119,9 +140,10 @@ class BlenderMCPServer:
 
     def _drain_queue(self):
         """Process commands on Blender's main thread via timer."""
+        processed = 0
         while not self._command_queue.empty():
             try:
-                command, client = self._command_queue.get_nowait()
+                command, req_id = self._command_queue.get_nowait()
             except queue.Empty:
                 break
 
@@ -130,9 +152,12 @@ class BlenderMCPServer:
             except Exception as e:
                 result = {"error": str(e)}
 
-            self._response_queue.put(result)
+            resp_queue = self._pending_responses.get(req_id)
+            if resp_queue:
+                resp_queue.put(result)
+            processed += 1
 
-        return 0.01  # Re-run every 10ms
+        return 0.01 if processed > 0 else None
 
     def _execute_command(self, command: dict) -> dict:
         """Dispatch command to the appropriate handler."""
@@ -164,13 +189,19 @@ class MCP_UL_StartServer(bpy.types.Operator):
     bl_idname = "mcp.toggle_server"
     bl_label = "Toggle MCP Server"
 
+    _server = None
+
     def execute(self, context):
         scene = context.scene
         if scene.mcp_server_running:
-            # Stop
+            if self._server:
+                self._server._stop()
+                self._server = None
             scene.mcp_server_running = False
             self.report({'INFO'}, "MCP Server stopped")
         else:
+            self._server = BlenderMCPServer(port=scene.mcp_server_port)
+            self._server._start()
             scene.mcp_server_running = True
             self.report({'INFO'}, f"MCP Server started on port {scene.mcp_server_port}")
         return {'FINISHED'}

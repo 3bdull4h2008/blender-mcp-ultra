@@ -58,13 +58,14 @@ class BlenderConnection:
 
     def disconnect(self):
         """Close the TCP connection."""
-        self._connected = False
-        if self._socket:
-            try:
-                self._socket.close()
-            except OSError:
-                pass
-            self._socket = None
+        with self._lock:
+            self._connected = False
+            if self._socket:
+                try:
+                    self._socket.close()
+                except OSError:
+                    pass
+                self._socket = None
         logger.info("Disconnected from Blender addon")
 
     def send_command(self, command_type: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -99,8 +100,8 @@ class BlenderConnection:
                 self._connected = False
                 raise ConnectionError(f"Failed to send command: {e}") from e
 
-            self._socket.settimeout(SEND_TIMEOUT)
             try:
+                self._socket.settimeout(SEND_TIMEOUT)
                 resp_header = self._recv_exact(HEADER_SIZE)
                 resp_len = struct.unpack(HEADER_FORMAT, resp_header)[0]
                 resp_data = self._recv_exact(resp_len)
@@ -113,8 +114,14 @@ class BlenderConnection:
             except OSError as e:
                 self._connected = False
                 raise ConnectionError(f"Failed to receive response: {e}") from e
+            except (AttributeError, TypeError):
+                raise ConnectionError("Connection was closed")
             finally:
-                self._socket.settimeout(None)
+                try:
+                    if self._socket:
+                        self._socket.settimeout(None)
+                except (AttributeError, OSError):
+                    pass
 
             response = json.loads(resp_data.decode("utf-8"))
 
@@ -132,6 +139,8 @@ class BlenderConnection:
         """Receive exactly n bytes from the socket."""
         data = b""
         while len(data) < n:
+            if not self._socket:
+                raise ConnectionError("Connection closed")
             chunk = self._socket.recv(n - len(data))
             if not chunk:
                 raise ConnectionError("Connection closed by Blender addon")

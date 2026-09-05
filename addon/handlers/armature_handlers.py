@@ -78,18 +78,30 @@ def create_humanoid_rig(params: dict) -> dict:
     head.parent = neck
 
     # Arms
-    for side, x in [("L", -0.2), ("L.001", -0.5)]:
+    for side, x in [("L", -0.2), ("R", 0.2)]:
         shoulder = eb.new(f"Shoulder_{side}")
         shoulder.head = (x, 0, 1.35)
-        shoulder.tail = (x - 0.3, 0, 1.3)
+        shoulder.tail = (x - 0.3, 0, 1.3) if side == "L" else (x + 0.3, 0, 1.3)
         shoulder.parent = chest
 
+    for side, x in [("L", -0.5), ("R", 0.5)]:
+        upper_arm = eb.new(f"UpperArm_{side}")
+        upper_arm.head = shoulder.head if side == "L" else (x, 0, 1.35)
+        upper_arm.tail = (x, 0, 1.3) if side == "L" else (x + 0.3, 0, 1.3)
+        upper_arm.tail = (x, 0, 1.0)
+        upper_arm.parent = shoulder
+
     # Legs
-    for side, x in [("L", -0.1), ("L.001", -0.1)]:
+    for side, x in [("L", -0.1), ("R", 0.1)]:
         thigh = eb.new(f"Thigh_{side}")
         thigh.head = (x, 0, 0.85)
         thigh.tail = (x, 0, 0.45)
         thigh.parent = spine
+
+        shin = eb.new(f"Shin_{side}")
+        shin.head = (x, 0, 0.45)
+        shin.tail = (x, 0, 0.05)
+        shin.parent = thigh
 
     bpy.ops.object.mode_set(mode='OBJECT')
     return {"status": "humanoid_rig_created", "name": arm.name}

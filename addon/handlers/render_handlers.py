@@ -29,7 +29,7 @@ def render_image(params: dict) -> dict:
     if os.path.exists(output_path):
         with open(output_path, "rb") as f:
             img_data = base64.b64encode(f.read()).decode("utf-8")
-        return {"status": "rendered", "path": output_path, "image_base64": img_data[:200] + "..."}
+        return {"status": "rendered", "path": output_path, "image_base64": img_data}
     return {"status": "render_failed", "path": output_path}
 
 
@@ -55,6 +55,7 @@ def render_preview(params: dict) -> dict:
 
     scene = bpy.context.scene
     old_x, old_y = scene.render.resolution_x, scene.render.resolution_y
+    old_pct = scene.render.resolution_percentage
     old_engine = scene.render.engine
     scene.render.resolution_x = w
     scene.render.resolution_y = h
@@ -67,6 +68,7 @@ def render_preview(params: dict) -> dict:
 
     scene.render.resolution_x = old_x
     scene.render.resolution_y = old_y
+    scene.render.resolution_percentage = old_pct
     scene.render.engine = old_engine
 
     if os.path.exists(output_path):

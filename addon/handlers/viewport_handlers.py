@@ -1,57 +1,49 @@
 """Viewport handlers — screenshots, shading, overlays."""
 
 import bpy
-import bpy_extras
 import tempfile
 import os
 import base64
-import gpu
-from gpu_extras.presets import draw_texture_2d
 
 
 def get_viewport_screenshot(params: dict) -> dict:
     mode = params.get("mode", "fast")
     resolution = params.get("resolution", "MEDIUM")
+    width = params.get("width")
+    height = params.get("height")
+    filepath = params.get("filepath", "")
 
-    sizes = {"LOW": (320, 240), "MEDIUM": (800, 600), "HIGH": (1920, 1080), "ULTRA": (3840, 2160)}
-    w, h = sizes.get(resolution, (800, 600))
+    if width and height:
+        w, h = int(width), int(height)
+    else:
+        sizes = {"LOW": (320, 240), "MEDIUM": (800, 600), "HIGH": (1920, 1080), "ULTRA": (3840, 2160)}
+        w, h = sizes.get(resolution, (800, 600))
 
-    output_path = os.path.join(tempfile.gettempdir(), f"blender_mcp_screenshot_{w}x{h}.png")
+    output_path = filepath if filepath else os.path.join(tempfile.gettempdir(), f"blender_mcp_screenshot_{w}x{h}.png")
 
-    # Use OpenGL for fast capture
     for area in bpy.context.screen.areas:
         if area.type == 'VIEW_3D':
             override = bpy.context.copy()
             override['area'] = area
             override['region'] = area.regions[-1]
             with bpy.context.temp_override(**override):
-                bpy.ops.view3d.viewporter_render_to_image(filepath=output_path, resolution_percentage=100)
+                bpy.ops.view3d.viewport_render_to_image(filepath=output_path, resolution_percentage=100)
             break
     else:
-        # Fallback: render viewport
-        bpy.context.scene.render.filepath = output_path
+        scene = bpy.context.scene
+        old_engine = scene.render.engine
+        scene.render.engine = 'BLENDER_EEVEE'
+        scene.render.resolution_x = w
+        scene.render.resolution_y = h
+        scene.render.resolution_percentage = 100
+        scene.render.filepath = output_path
         bpy.ops.render.render(write_still=True)
+        scene.render.engine = old_engine
 
     if os.path.exists(output_path):
         with open(output_path, "rb") as f:
             img_data = base64.b64encode(f.read()).decode("utf-8")
         return {"status": "screenshot_taken", "path": output_path, "image_base64": img_data}
-
-    # If no viewport capture, render preview
-    scene = bpy.context.scene
-    old_engine = scene.render.engine
-    scene.render.engine = 'BLENDER_EEVEE'
-    scene.render.resolution_x = w
-    scene.render.resolution_y = h
-    scene.render.resolution_percentage = 100
-    scene.render.filepath = output_path
-    bpy.ops.render.render(write_still=True)
-    scene.render.engine = old_engine
-
-    if os.path.exists(output_path):
-        with open(output_path, "rb") as f:
-            img_data = base64.b64encode(f.read()).decode("utf-8")
-        return {"status": "screenshot_rendered", "path": output_path, "image_base64": img_data}
     return {"status": "screenshot_failed"}
 
 
@@ -59,6 +51,8 @@ def get_render_preview(params: dict) -> dict:
     output_path = os.path.join(tempfile.gettempdir(), "blender_mcp_render_preview.png")
     scene = bpy.context.scene
     old_engine = scene.render.engine
+    old_x, old_y = scene.render.resolution_x, scene.render.resolution_y
+    old_pct = scene.render.resolution_percentage
     scene.render.engine = 'BLENDER_EEVEE'
     scene.render.resolution_x = 800
     scene.render.resolution_y = 600
@@ -66,6 +60,9 @@ def get_render_preview(params: dict) -> dict:
     scene.render.filepath = output_path
     bpy.ops.render.render(write_still=True)
     scene.render.engine = old_engine
+    scene.render.resolution_x = old_x
+    scene.render.resolution_y = old_y
+    scene.render.resolution_percentage = old_pct
     if os.path.exists(output_path):
         with open(output_path, "rb") as f:
             img_data = base64.b64encode(f.read()).decode("utf-8")

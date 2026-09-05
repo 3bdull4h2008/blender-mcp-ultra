@@ -187,16 +187,22 @@ def connect_shader_nodes(params: dict) -> dict:
 def set_shader_node_value(params: dict) -> dict:
     mat_name = params["material_name"]
     node_name = params["node_name"]
+    input_name = params.get("input_name", "")
     value = params["value"]
     mat = bpy.data.materials.get(mat_name)
     if not mat:
         return {"error": f"Material '{mat_name}' not found"}
     for n in mat.node_tree.nodes:
         if n.name == node_name or n.label == node_name:
-            for input in n.inputs:
-                if hasattr(input, 'default_value'):
-                    input.default_value = value
-                    return {"status": "value_set", "node": node_name}
+            if input_name:
+                if input_name in n.inputs:
+                    n.inputs[input_name].default_value = value
+                    return {"status": "value_set", "node": node_name, "input": input_name}
+                return {"error": f"Input '{input_name}' not found on node '{node_name}'"}
+            for inp in n.inputs:
+                if hasattr(inp, 'default_value'):
+                    inp.default_value = value
+                    return {"status": "value_set", "node": node_name, "input": inp.name}
     return {"error": f"Node '{node_name}' not found"}
 
 

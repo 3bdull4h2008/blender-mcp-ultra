@@ -113,7 +113,7 @@ def assign_vertex_group(
         "object_name": Validator.validate_name(object_name),
         "group_name": Validator.validate_name(group_name),
         "vertices": vertices,
-        "weight": Validator.validate_percentage(weight) / 100.0,
+        "weight": max(0.0, min(1.0, float(weight))),
     })
 
 

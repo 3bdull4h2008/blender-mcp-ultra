@@ -46,7 +46,7 @@ def list_objects(params: dict) -> dict:
     collection_name = params.get("collection")
 
     objects = []
-    source = bpy.data.collections[collection_name].objects if collection_name else bpy.context.scene.objects
+    source = bpy.data.collections[collection_name].objects if collection_name and collection_name in bpy.data.collections else bpy.context.scene.objects
 
     for obj in source:
         if object_type != "ALL" and obj.type != object_type:
@@ -158,7 +158,8 @@ def set_render_settings(params: dict) -> dict:
         if engine == 'CYCLES':
             scene.cycles.samples = params["samples"]
     if "use_denoising" in params:
-        scene.cycles.use_denoising = params["use_denoising"]
+        if scene.render.engine == 'CYCLES':
+            scene.cycles.use_denoising = params["use_denoising"]
     return {"status": "render_settings_updated"}
 
 

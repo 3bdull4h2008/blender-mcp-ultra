@@ -2,7 +2,6 @@
 
 from blender_mcp_ultra.connection import get_blender_connection
 from blender_mcp_ultra.server import mcp
-from blender_mcp_ultra.validators import Validator
 
 
 @mcp.tool()

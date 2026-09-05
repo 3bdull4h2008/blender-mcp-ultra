@@ -46,3 +46,7 @@ ENV/
 *.swp
 *.swo
 *~
+*.blend
+*.blend1
+Thumbs.db
+.DS_Store
