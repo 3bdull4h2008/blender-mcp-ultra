@@ -1,0 +1,54 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "blender-mcp-ultra"
+version = "1.0.0"
+description = "The ultimate Blender MCP server — 150+ tools, expert prompts, visual feedback, goal-first routing, mesh quality analysis. Better than paid alternatives."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [{ name = "Blender MCP Ultra" }]
+keywords = ["blender", "mcp", "3d", "ai", "agent"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Multimedia :: Graphics :: 3D Modeling",
+]
+
+dependencies = [
+    "mcp>=1.9.0",
+    "httpx>=0.27.0",
+    "pydantic>=2.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "ruff>=0.4.0",
+]
+
+[project.scripts]
+blender-mcp-ultra = "blender_mcp_ultra.server:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/blender_mcp_ultra"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
